@@ -194,7 +194,9 @@ export async function setSessionCookie(sessionToken: string): Promise<void> {
 
   cookieStore.set(SESSION_COOKIE_NAME, sessionToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    // leda serves plain http, production included, and browsers never send a
+    // Secure cookie back over http. Set COOKIE_SECURE=1 if this moves behind https.
+    secure: process.env.COOKIE_SECURE === '1',
     sameSite: 'lax',
     expires: expiresAt,
     path: '/'
