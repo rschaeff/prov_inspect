@@ -1,0 +1,9 @@
+node_modules
+.next
+*.log
+*.pid
+next-env.d.ts
+tsconfig.tsbuildinfo
+.env*.local
+# Mol* bundle, copied from node_modules by sync_molstar.sh (npm run build runs it)
+public/molstar

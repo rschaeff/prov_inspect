@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #ffffff;
+  --fg: #16181d;
+  --muted: #5c6370;
+  --line: #e3e6ea;
+  --panel: #f7f8fa;
+  --ok: #1a7f37;
+  --bad: #b42318;
+  --warn: #9a6700;
+  --unk: #57606a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1116;
+    --fg: #e6e8ec;
+    --muted: #9aa1ab;
+    --line: #262b33;
+    --panel: #171a21;
+    --ok: #3fb950;
+    --bad: #f85149;
+    --warn: #d29922;
+    --unk: #8b949e;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1116;
+  --fg: #e6e8ec;
+  --muted: #9aa1ab;
+  --line: #262b33;
+  --panel: #171a21;
+  --ok: #3fb950;
+  --bad: #f85149;
+  --warn: #d29922;
+  --unk: #8b949e;
+}
+
+html, body { background: var(--bg); color: var(--fg); }
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+.muted { color: var(--muted); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+th { font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 12px; border: 1px solid var(--line); }
+.b-ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+.b-bad { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, transparent); }
+.b-warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+.b-unk { color: var(--unk); }
+h1 { font-size: 20px; margin: 0 0 4px; }
+h2 { font-size: 15px; margin: 28px 0 8px; }
+input[type=text] {
+  background: var(--bg); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 7px 10px; font-size: 14px; width: 100%;
+}
+.grid { display: grid; gap: 12px; }
+@media (min-width: 720px) { .g3 { grid-template-columns: repeat(3, 1fr); } }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 14px; }
+.scroll { overflow-x: auto; }
+
+/* prov_inspect: recommendation colours, shared by tags, tracks and the viewer legend */
+:root {
+  --r-split: #2f81f7;
+  --r-trim: #8250df;
+  --r-retire: #b42318;
+  --r-keep: #1a7f37;
+}
+.r-split { color: var(--r-split); border-color: color-mix(in srgb, var(--r-split) 40%, transparent); }
+.r-trim { color: var(--r-trim); border-color: color-mix(in srgb, var(--r-trim) 40%, transparent); }
+.r-retire { color: var(--r-retire); border-color: color-mix(in srgb, var(--r-retire) 40%, transparent); }
+.r-keep { color: var(--r-keep); border-color: color-mix(in srgb, var(--r-keep) 40%, transparent); }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 900px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+.scroll-x { overflow-x: auto; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+h2 { font-size: 15px; margin: 24px 0 8px; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+.filters select, .filters input { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font: inherit; }
+.btn { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; font: inherit; cursor: pointer; }
+.btn[aria-pressed="true"] { border-color: var(--r-split); color: var(--r-split); }
+.btn:disabled { opacity: .5; cursor: default; }
+.linkish { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; }
+.navlogin input { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; font: inherit; }
