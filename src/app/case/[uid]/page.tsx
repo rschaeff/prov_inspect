@@ -20,7 +20,8 @@ export default async function CasePage({ params, searchParams }: {
       </div>
       <h1><span className="mono">{c.domain_id}</span>{' '}
         <span className={`tag r-${r.primary}`} title={REC_NOTE[r.primary]}>{r.primary}</span></h1>
-      <div style={{ marginBottom: 4 }}>{r.why}</div>
+      <div style={{ marginBottom: 4 }}>{r.why}{' '}
+        <Link href="/methods#primary" className="muted" style={{ fontSize: 12 }}>how is this decided?</Link></div>
       <div className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
         uid {c.ecod_uid} &middot; {c.type} &middot; range <span className="mono">{c.range_definition}</span> &middot;{' '}
         F <span className="mono">{c.f_id}</span> {c.f_name} &middot; {c.length} res, {c.len_ratio}× the H-group&apos;s

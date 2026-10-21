@@ -21,6 +21,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Link href="/?rec=trim" className="muted">trim</Link>
             <Link href="/?rec=retire" className="muted">retire</Link>
             <Link href="/?dec=decided" className="muted">decided</Link>
+            <Link href="/methods" className="muted">methods</Link>
             <span className="muted" style={{ marginLeft: 'auto', fontSize: 12 }}>
               snapshot {census?.built ?? '?'}
             </span>
