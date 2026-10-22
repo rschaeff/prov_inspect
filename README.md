@@ -52,6 +52,17 @@ SELECT DISTINCT ON (ecod_domain_id) ecod_domain_id, action, new_classification, 
  ORDER BY ecod_domain_id, created_at DESC, id DESC;
 ```
 
+Split and trim decisions take either the pipeline's proposal or the curator's own boundaries (a boundary
+neither proposal found; `boundary_source: 'own'`, checked against the domain file, drawn on the structure
+while typing). Own boundaries count as overriding the recommendation, so they need a reason.
+
+## Pilot (blind labeling for the agent evaluation)
+
+`/pilot` lists a frozen 90-case sample (`prov_amalgam/pilot/`, see its README) for labeling before any
+agent runs. The labeling view hides every pipeline verdict, on the server, and while the pilot is open the
+sample is hidden from the rest of the app. Labels go to `ecod_curation.prov_pilot_label`, not the decision
+log. Close the pilot with `touch $PROV_DATA_DIR/pilot/CLOSED`.
+
 ## Pipeline (`~/work/ecod_consistency_2027/prov_amalgam`)
 
 ```bash

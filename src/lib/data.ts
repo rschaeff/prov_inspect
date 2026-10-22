@@ -1,3 +1,4 @@
+import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
 import path from 'path';
 
@@ -88,6 +89,51 @@ export async function getCase(uid: string): Promise<Case | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * A case with the pipeline's conclusions removed, for the pilot's labeling view. Whatever a server
+ * page passes to a client component is readable in the page source, so hiding verdicts in the UI is not
+ * enough: the call, the recommendation and every viable/strong flag are blanked here, on the server.
+ * The proposals' geometry and measurements stay.
+ */
+export function blindCase(c: Case): Case {
+  const o = c.options;
+  return {
+    ...c,
+    call: { cls: '', subclass: '', evidence: '', tier: '' },
+    recommendation: { primary: 'keep', why: '' }, // placeholder only; the blind view never reads it
+    options: {
+      split: o.split && { ...o.split, viable: false },
+      trim: o.trim && { ...o.trim, viable: false },
+      retire: { ...o.retire, strong: false },
+    },
+  };
+}
+
+/**
+ * The blinded pilot (prov_amalgam/pilot): a frozen sample a curator labels before any agent sees it.
+ * sample.json holds uids and presentation order only, never the stratum, so nothing here can hint at
+ * the pipeline's recommendation. Labeling is open until pilot/CLOSED exists.
+ */
+export type Pilot = { pilot: string; created: string; seed: number; items: { uid: number; order: number }[] };
+
+export async function getPilot(): Promise<Pilot | null> {
+  try {
+    return JSON.parse(await readFile(path.join(DATA_DIR, 'pilot', 'sample.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+export function pilotOpen(p: Pilot | null): boolean {
+  return !!p && !existsSync(path.join(DATA_DIR, 'pilot', 'CLOSED'));
+}
+
+/** Cases kept out of the normal list, H-group pages and queue while labeling is open. */
+export async function hiddenUids(): Promise<Set<number>> {
+  const p = await getPilot();
+  return pilotOpen(p) ? new Set(p!.items.map((x) => x.uid)) : new Set();
 }
 
 /** ecod_uid -> pre-cut domain file in the af2_pdb store (same layout prosmos_inspect uses). */

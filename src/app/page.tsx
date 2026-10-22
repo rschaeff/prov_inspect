@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getCensus, getIndex, RECS, REC_NOTE, type IndexRow } from '@/lib/data';
+import { getCensus, getIndex, hiddenUids, RECS, REC_NOTE, type IndexRow } from '@/lib/data';
 import { ACTION_LABEL, latestDecisions, recAction, type Action, type ActionRow } from '@/lib/actions';
 
 const CLASSES = ['amalgam', 'partial', 'redundant', 'no_hit'];
@@ -15,7 +15,8 @@ type SP = Record<string, string | undefined>;
 
 export default async function Home({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
-  const [census, index] = await Promise.all([getCensus(), getIndex()]);
+  const [census, all, hidden] = await Promise.all([getCensus(), getIndex(), hiddenUids()]);
+  const index = hidden.size ? all.filter((r) => !hidden.has(r.uid)) : all;
   // Decisions are live (they are ours, not ecod_commons); the list still works if dione is unreachable.
   let decided = new Map<string, ActionRow>();
   let decErr: string | null = null;
@@ -50,6 +51,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<SP>
         {census.n_cases.toLocaleString()} provisional reps called amalgam, partial, redundant or no-hit against the
         manual reps, each with a split, trim and retire option and one primary recommendation. Divergent single
         domains (12,159) are not cases.
+        {hidden.size > 0 && <> The {hidden.size} <Link href="/pilot">pilot</Link> cases are left out of this list
+          while blind labeling is open.</>}
       </p>
 
       <div className="scroll-x">

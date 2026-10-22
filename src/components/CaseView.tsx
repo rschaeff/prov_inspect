@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Molstar, { type ColorRange } from './Molstar';
 import type { Case, Hit, Piece } from '@/lib/data';
+import type { ParsedDomain } from '@/lib/ranges';
 
 const PIECE = ['#2f81f7', '#e16f24', '#1a7f37', '#8250df', '#bf3989', '#0f8b8d', '#9a6700', '#cf222e'];
 const UNASSIGNED = '#57606a';
@@ -23,16 +24,27 @@ function pieceColors(pieces: Piece[]) {
     : p.status === 'unassigned_domain' ? UNASSIGNED : PIECE[k++ % PIECE.length]));
 }
 
-type Mode = 'split' | 'trim' | 'plddt' | 'hit';
+type Mode = 'split' | 'trim' | 'plddt' | 'hit' | 'mine';
 
-export default function CaseView({ c }: { c: Case }) {
+/**
+ * blind: the pilot's labeling view. The proposals' geometry and measurements stay; every verdict the
+ * pipeline reached (recommended option, viable / not viable, strong retire) is hidden, and the view
+ * opens on pLDDT rather than on whichever proposal the pipeline favoured.
+ * mine: boundaries the curator is typing, drawn on the structure and the track as they go.
+ */
+export default function CaseView({ c, blind = false, mine = null }: {
+  c: Case; blind?: boolean; mine?: ParsedDomain[] | null;
+}) {
   const n = c.residues.length;
   const split = c.options.split;
   const trim = c.options.trim;
   const hasPlddt = c.residues.some((r) => r[3] !== null);
-  const [mode, setMode] = useState<Mode>(split?.viable ? 'split' : trim ? 'trim' : hasPlddt ? 'plddt' : 'split');
+  const [mode, setMode] = useState<Mode>(blind ? (hasPlddt ? 'plddt' : split ? 'split' : 'trim')
+    : split?.viable ? 'split' : trim ? 'trim' : hasPlddt ? 'plddt' : 'split');
   const [hit, setHit] = useState<Hit | null>(null);
   const splitColors = useMemo(() => (split ? pieceColors(split.pieces) : []), [split]);
+  const mineKey = mine?.map((d) => d.range).join(';') ?? '';
+  useEffect(() => { if (mineKey) setMode('mine'); }, [mineKey]);
 
   const ranges: ColorRange[] = useMemo(() => {
     if (mode === 'split' && split) {
@@ -57,8 +69,11 @@ export default function CaseView({ c }: { c: Case }) {
       return out;
     }
     if (mode === 'hit' && hit) return [{ start: hit.qs, end: hit.qe, color: SRC[hit.src] }];
+    if (mode === 'mine' && mine) {
+      return mine.flatMap((d, i) => d.segments.map((g) => ({ ...g, color: PIECE[i % PIECE.length] })));
+    }
     return [];
-  }, [mode, split, trim, hit, splitColors, hasPlddt, c.residues, n]);
+  }, [mode, split, trim, hit, splitColors, hasPlddt, c.residues, n, mine]);
 
   const pos = (i: number) => {
     const r = c.residues[i - 1];
@@ -79,17 +94,19 @@ export default function CaseView({ c }: { c: Case }) {
             ))}
             {hit && <button className="btn" aria-pressed={mode === 'hit'} onClick={() => setMode('hit')}>
               hit {hit.target}</button>}
+            {mine && mine.length > 0 && <button className="btn" aria-pressed={mode === 'mine'}
+              onClick={() => setMode('mine')}>my boundaries</button>}
           </div>
           <Molstar uid={c.ecod_uid} residues={c.residues} ranges={ranges}
             caption={<>{c.domain_id}, the domain file the recommendations were computed on &middot; {n} residues</>} />
         </div>
         <div>
-          <Options c={c} splitColors={splitColors} />
+          <Options c={c} splitColors={splitColors} blind={blind} />
         </div>
       </div>
 
       <h2>Evidence along the domain</h2>
-      <Track c={c} splitColors={splitColors} onHit={(h) => { setHit(h); setMode('hit'); }} selected={hit} />
+      <Track c={c} splitColors={splitColors} onHit={(h) => { setHit(h); setMode('hit'); }} selected={hit} mine={mine} />
 
       {hit && (
         <>
@@ -165,15 +182,16 @@ function PieceRow({ p, color }: { p: Piece; color: string }) {
   );
 }
 
-function Options({ c, splitColors }: { c: Case; splitColors: string[] }) {
+function Options({ c, splitColors, blind }: { c: Case; splitColors: string[]; blind: boolean }) {
   const { split, trim, retire } = c.options;
-  const primary = c.recommendation.primary;
+  const primary = blind ? null : c.recommendation.primary;
   const head = (k: string, ok: boolean | null, extra?: string) => (
     <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 6 }}>
       <span className={`tag r-${k}`} style={{ fontWeight: primary === k ? 700 : 400 }}>
-        {primary === k ? '★ ' : ''}{k}</span>
+        {primary === k ? '★ ' : ''}{blind && k !== 'retire' ? `${k} proposal` : blind ? 'quality' : k}</span>
       <span className="muted" style={{ fontSize: 12 }}>
-        {ok === null ? 'not applicable' : ok ? 'viable' : 'not viable'}{extra ? ` · ${extra}` : ''}</span>
+        {ok === null ? 'none' : blind ? '' : ok ? 'viable' : 'not viable'}
+        {extra ? `${blind || ok === null ? '' : ' · '}${extra}` : ''}</span>
     </div>
   );
   return (
@@ -222,8 +240,8 @@ function Options({ c, splitColors }: { c: Case; splitColors: string[] }) {
   );
 }
 
-function Track({ c, splitColors, onHit, selected }: {
-  c: Case; splitColors: string[]; onHit: (h: Hit) => void; selected: Hit | null;
+function Track({ c, splitColors, onHit, selected, mine }: {
+  c: Case; splitColors: string[]; onHit: (h: Hit) => void; selected: Hit | null; mine: ParsedDomain[] | null;
 }) {
   const n = c.residues.length;
   const W = 1000;
@@ -238,6 +256,7 @@ function Track({ c, splitColors, onHit, selected }: {
   const ySplit = c.options.split ? next('split') : null;
   const yTrim = c.options.trim ? next('trim') : null;
   const ySeg = next('tiled segs');
+  const yMine = mine && mine.length ? next('mine') : null;
   y += 4;
   const yHits = hits.map((_, i) => next(i === 0 ? 'hits' : ''));
   const ticks = Array.from({ length: 6 }, (_, k) => Math.max(1, Math.round(1 + (k * (n - 1)) / 5)));
@@ -277,6 +296,10 @@ function Track({ c, splitColors, onHit, selected }: {
           <rect key={i} x={x(s.qs)} y={ySeg} width={w(s.qs, s.qe)} height={ROW} rx={2} fill={SRC[s.src]}
             stroke="var(--fg)" strokeWidth={0.5}><title>{`${s.target} (${s.target_h}) ${s.pid}%`}</title></rect>
         ))}
+        {yMine !== null && mine!.flatMap((d, i) => d.segments.map((g, k) => (
+          <rect key={`${i}-${k}`} x={x(g.start)} y={yMine} width={w(g.start, g.end)} height={ROW} rx={2}
+            fill={PIECE[i % PIECE.length]}><title>{`domain ${i + 1}: ${d.range}`}</title></rect>
+        )))}
         {hits.map((h, i) => (
           <g key={i} onClick={() => onHit(h)} style={{ cursor: 'pointer' }}>
             <rect x={x(h.qs)} y={yHits[i]} width={w(h.qs, h.qe)} height={ROW - 4} rx={2} fill={SRC[h.src]}

@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { getCensus, getIndex, RECS } from '@/lib/data';
+import { getCensus, getIndex, hiddenUids, RECS } from '@/lib/data';
 
 export default async function HGroupPage({ params }: { params: Promise<{ h: string }> }) {
   const { h } = await params;
-  const [census, index] = await Promise.all([getCensus(), getIndex()]);
+  const [census, index, hidden] = await Promise.all([getCensus(), getIndex(), hiddenUids()]);
   const g = census.hgroups.find((x) => x.h === h);
   if (!g) notFound();
-  const rows = index.filter((r) => r.h === h)
+  const rows = index.filter((r) => r.h === h && !hidden.has(r.uid))
     .sort((a, b) => RECS.indexOf(a.rec) - RECS.indexOf(b.rec) || b.mem - a.mem);
   return (
     <>

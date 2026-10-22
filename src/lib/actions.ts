@@ -1,5 +1,6 @@
 import { query } from '@/lib/db';
 import { getCensus, type Case, type Piece } from '@/lib/data';
+import type { ParsedDomain } from '@/lib/ranges';
 
 /**
  * Curator decisions, logged to ecod_curation.reference_domain_actions: the
@@ -10,15 +11,17 @@ import { getCensus, type Case, type Piece } from '@/lib/data';
  *
  * The proposal recorded with a decision is rebuilt on the server from the
  * case snapshot, never taken from the browser, so a row always says exactly
- * which boundaries were accepted. Rows from this app carry
- * new_classification.source = 'prov_inspect'.
+ * which boundaries were accepted. A split or trim may instead carry the
+ * curator's own boundaries (a boundary neither proposal found), checked
+ * against the domain file; new_classification.boundary_source says which.
+ * Rows from this app carry new_classification.source = 'prov_inspect'.
  */
 
 export type Action = 'split' | 'trim' | 'remove' | 'keep' | 'flag_review';
 export const ACTIONS: Action[] = ['split', 'trim', 'remove', 'keep', 'flag_review'];
 export const ACTION_LABEL: Record<Action, string> = {
-  split: 'accept split',
-  trim: 'accept trim',
+  split: 'split',
+  trim: 'trim',
   remove: 'retire',
   keep: 'keep as is',
   flag_review: 'flag for review',
@@ -37,15 +40,18 @@ const piece = (p: Piece) => ({
   target: p.match?.target ?? null, target_f: p.match?.target_f ?? null,
 });
 
-export async function buildRow(c: Case, action: Action) {
+export async function buildRow(c: Case, action: Action, own: ParsedDomain[] | null = null) {
   const census = await getCensus();
   const old = {
     t_group: c.t_id, f_group: c.f_id, range_definition: c.range_definition, ecod_uid: c.ecod_uid,
     call: c.call.cls, members_active: c.members.active,
   };
   let proposal: Record<string, unknown> | null = null;
-  if (action === 'split') proposal = { pieces: c.options.split!.pieces.map(piece) };
-  if (action === 'trim') proposal = { piece: piece(c.options.trim!.piece), dropped: c.options.trim!.dropped_ranges };
+  if (own) proposal = { boundary_source: 'own', domains: own.map((d) => ({ range: d.range, length: d.length })) };
+  else if (action === 'split') proposal = { boundary_source: 'split_proposal', pieces: c.options.split!.pieces.map(piece) };
+  else if (action === 'trim') {
+    proposal = { boundary_source: 'trim_proposal', piece: piece(c.options.trim!.piece), dropped: c.options.trim!.dropped_ranges };
+  }
   if (action === 'remove') proposal = { reasons: c.options.retire.reasons };
   const neu = {
     source: 'prov_inspect',
@@ -58,8 +64,8 @@ export async function buildRow(c: Case, action: Action) {
   return { old, neu };
 }
 
-/** Is this action possible for the case? Mirrors which options the case page offers. */
-export function available(c: Case, action: Action): boolean {
+/** Can this action use the pipeline's proposal? (Split and trim are always possible with own boundaries.) */
+export function hasProposal(c: Case, action: Action): boolean {
   if (action === 'split') return !!c.options.split && c.options.split.pieces.length > 1;
   if (action === 'trim') return !!c.options.trim;
   return true;

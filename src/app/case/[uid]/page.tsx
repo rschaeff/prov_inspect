@@ -1,15 +1,16 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import CaseView from '@/components/CaseView';
-import DecisionPanel from '@/components/DecisionPanel';
-import { ACTIONS, available, recAction } from '@/lib/actions';
-import { getCase, REC_NOTE } from '@/lib/data';
+import { notFound, redirect } from 'next/navigation';
+import CaseWorkspace from '@/components/CaseWorkspace';
+import { recAction } from '@/lib/actions';
+import { getCase, hiddenUids, REC_NOTE } from '@/lib/data';
 
 export default async function CasePage({ params, searchParams }: {
   params: Promise<{ uid: string }>; searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const { uid } = await params;
   const sp = await searchParams;
+  // a pilot case shows its recommendation only after blind labeling closes
+  if ((await hiddenUids()).has(parseInt(uid, 10))) redirect(`/pilot/${parseInt(uid, 10)}`);
   const c = await getCase(uid);
   if (!c) notFound();
   const r = c.recommendation;
@@ -32,9 +33,7 @@ export default async function CasePage({ params, searchParams }: {
         {c.members.active > 0 && <> ({c.members.full_length} full-length, {c.members.fragments} under 60% of its length)
           {r.primary !== 'keep' && <span style={{ color: 'var(--warn)' }}> &mdash; reassign or re-parse after this change</span>}</>}
       </div>
-      <DecisionPanel uid={uid} offered={ACTIONS.filter((a) => available(c, a))}
-        recommended={recAction(r.primary)} nextHref={nextHref(c.ecod_uid, sp)} />
-      <CaseView c={c} />
+      <CaseWorkspace c={c} recommended={recAction(r.primary)} nextHref={nextHref(c.ecod_uid, sp)} />
     </>
   );
 }
