@@ -75,11 +75,13 @@ input[type=text] {
 :root {
   --r-split: #2f81f7;
   --r-trim: #8250df;
+  --r-demote: #0f8b8d;
   --r-retire: #b42318;
   --r-keep: #1a7f37;
 }
 .r-split { color: var(--r-split); border-color: color-mix(in srgb, var(--r-split) 40%, transparent); }
 .r-trim { color: var(--r-trim); border-color: color-mix(in srgb, var(--r-trim) 40%, transparent); }
+.r-demote { color: var(--r-demote); border-color: color-mix(in srgb, var(--r-demote) 40%, transparent); }
 .r-retire { color: var(--r-retire); border-color: color-mix(in srgb, var(--r-retire) 40%, transparent); }
 .r-keep { color: var(--r-keep); border-color: color-mix(in srgb, var(--r-keep) 40%, transparent); }
 .grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }

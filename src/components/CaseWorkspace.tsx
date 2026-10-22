@@ -14,7 +14,8 @@ export default function CaseWorkspace({ c, recommended, nextHref }: { c: Case; r
   return (
     <>
       <DecisionPanel uid={c.ecod_uid} recommended={recommended} nextHref={nextHref} residues={c.residues}
-        proposals={{ split: split.length > 1 ? split : null, trim: c.options.trim?.piece.range ?? null }}
+        proposals={{ split: split.length > 1 ? split : null, trim: c.options.trim?.piece.range ?? null,
+          demote: c.options.demote?.match.target ?? null }}
         onMine={setMine} />
       <CaseView c={c} mine={mine} />
     </>

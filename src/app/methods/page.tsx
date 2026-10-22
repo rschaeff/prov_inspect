@@ -15,13 +15,13 @@ export default async function Methods() {
     <div style={{ maxWidth: 820 }}>
       <h1>Methods</h1>
       <p className="muted" style={{ marginTop: 0 }}>
-        How each provisional rep becomes a case, and how a case reaches split, trim, retire or keep. Snapshot{' '}
-        {census.built}. Code: <span className="mono">~/work/ecod_consistency_2027/prov_amalgam</span>.
+        How each provisional rep becomes a case, and how a case reaches split, trim, demote, retire or keep.
+        Snapshot {census.snapshot ?? census.built}. Code: <span className="mono">~/work/ecod_consistency_2027/prov_amalgam</span>.
       </p>
 
       <div className="panel toc">
         <a href="#scope">1. Scope</a><a href="#search">2. Searches</a><a href="#tiling">3. Tiling hits</a>
-        <a href="#calls">4. Calls</a><a href="#quality">5. Quality measures</a><a href="#options">6. The three options</a>
+        <a href="#calls">4. Calls</a><a href="#quality">5. Quality measures</a><a href="#options">6. The options</a>
         <a href="#primary">7. Primary recommendation</a><a href="#members">8. ecod_commons members</a>
         <a href="#decisions">9. Curator decisions</a><a href="#limits">10. Limitations</a>
       </div>
@@ -117,8 +117,8 @@ export default async function Methods() {
         matches nothing must be at least <b>40</b> residues, pass pLDDT, <i>and</i> be compact.
       </p>
 
-      <h2 id="options">6. The three options</h2>
-      <p>Every case is evaluated for all three; the case page shows them side by side.</p>
+      <h2 id="options">6. The options</h2>
+      <p>Every case is evaluated for all of them; the case page shows them side by side.</p>
 
       <h3><span className="tag r-split">split</span> new boundaries resolving two or more domains</h3>
       <ul>
@@ -150,7 +150,19 @@ export default async function Methods() {
           <b>Viable</b> when the kept piece passes pLDDT and nothing dropped is itself a folded domain (≥ 40 residues,
           good pLDDT, compact). Dropping more than 30% of the rep is flagged <i>caution</i> but not blocked.
         </li>
+        <li>
+          A trim always changes the boundaries. When the matched domain, with its short termini attached, already
+          spans the whole rep, no trim is offered: the boundaries are right as they are.
+        </li>
       </ul>
+
+      <h3><span className="tag r-demote">demote</span> the boundaries are right, but it duplicates a manual rep</h3>
+      <p>
+        Offered when one manual rep matches the <b>whole</b> domain (unmatched termini under 20 residues) at{' '}
+        <b>≥ 50% identity over ≥ 80%</b> of that manual rep, by sequence or structure. The rep should become that
+        manual rep&apos;s member, with its boundaries unchanged. The same-H-group match is preferred, then the highest
+        bit score.
+      </p>
 
       <h3><span className="tag r-retire">retire</span> the domain is poor</h3>
       <p>
@@ -165,24 +177,26 @@ export default async function Methods() {
       <ol className="ladder">
         <li><span className="tag r-retire">retire</span> a strong retire reason (§6).</li>
         <li><span className="tag r-split">split</span> the split is viable.</li>
+        <li><span className="tag r-demote">demote</span> a manual rep duplicates the whole domain.</li>
         <li>
           <span className="tag r-trim">trim</span> the trim is viable. For a <i>redundant</i> call, only when the
           trimmed piece becomes a member of the manual rep.
         </li>
         <li><span className="tag r-retire">retire</span> no hit at all and mean pLDDT &lt; 60.</li>
         <li>
-          <span className="tag r-trim">trim</span> the call is <i>redundant</i>: demote to a member of the manual rep it
-          duplicates.
+          <span className="tag r-trim">trim</span> the call is <i>redundant</i> and a trim exists: trim to the
+          duplicated part and demote it to a member of that manual rep.
         </li>
         <li>
           <span className="tag r-keep">keep</span> otherwise, with the reason given: well folded with no curated relative
-          (genuinely divergent); hits are all fragmentary, so there is no boundary evidence; trimming would drop a
+          (genuinely divergent); one domain matching a manual rep along its whole length, so the boundaries are
+          already right; hits are all fragmentary, so there is no boundary evidence; trimming would drop a
           folded region that matches nothing; or the matched pieces are not all well folded. A keep that is
           confidently predicted but not compact (helical bundles, coiled coils) is noted as non-globular rather than
           retired.
         </li>
       </ol>
-      <table style={{ maxWidth: 420 }}>
+      <table style={{ maxWidth: 520 }}>
         <thead><tr>{RECS.map((r) => <th key={r} className="num"><span className={`tag r-${r}`}>{r}</span></th>)}</tr></thead>
         <tbody><tr>{RECS.map((r) => <td key={r} className="num">
           <Link href={`/?rec=${r}`}>{n(r).toLocaleString()}</Link></td>)}</tr></tbody>
@@ -226,7 +240,7 @@ export default async function Methods() {
           expect to adjust them by a few residues.
         </li>
         <li>
-          <b>Snapshot.</b> Everything except curator decisions is frozen at {census.built}. ecod_commons is curated in
+          <b>Snapshot.</b> Everything except curator decisions is frozen at {census.snapshot ?? census.built}. ecod_commons is curated in
           parallel and may have moved since.
         </li>
       </ul>

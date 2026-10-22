@@ -8,16 +8,18 @@ import path from 'path';
  * never from a live query. ecod_commons is curated in a parallel session and
  * moves under us (see sfld_inspect/SPEC.md, "The pinning rule"); a live join
  * would let the page and the recommendations TSV disagree about a domain.
- * Re-run the pipeline to refresh, and census.json's `built` date says when.
+ * Re-run the pipeline to refresh. census.json's `snapshot` is when the database was read; `built`
+ * is when the recommendations were last computed from it.
  */
 export const DATA_DIR = process.env.PROV_DATA_DIR
   || '/home/rschaeff/work/ecod_consistency_2027/prov_amalgam';
 
-export type Rec = 'split' | 'trim' | 'retire' | 'keep';
-export const RECS: Rec[] = ['split', 'trim', 'retire', 'keep'];
+export type Rec = 'split' | 'trim' | 'demote' | 'retire' | 'keep';
+export const RECS: Rec[] = ['split', 'trim', 'demote', 'retire', 'keep'];
 export const REC_NOTE: Record<Rec, string> = {
   split: 'new boundaries resolving two or more domains',
   trim: 'new boundary resolving the one domain that is there; may no longer be a rep',
+  demote: 'boundaries are right, but it duplicates a manual rep: make it that rep\'s member',
   retire: 'poor domain (disordered, low pLDDT, too short or unsupported); retire it',
   keep: 'no action: single, well-folded, and either divergent or not clearly wrong',
 };
@@ -30,10 +32,11 @@ export type IndexRow = {
 
 export type Census = {
   built: string;
+  snapshot?: string;
   n_cases: number;
   by_class_rec: { cls: string; rec: Rec; n: number }[];
   members_by_rec: Record<string, number>;
-  hgroups: { h: string; name: string; n: number; split: number; trim: number; retire: number; keep: number; members: number }[];
+  hgroups: ({ h: string; name: string; n: number; members: number } & Record<Rec, number>)[];
 };
 
 export type Quality = { lrc: number | null; mean_plddt?: number; frac_lt50?: number };
@@ -64,6 +67,8 @@ export type Case = {
       piece: Piece; dropped_residues: number; dropped_frac: number; dropped_ranges: string[];
       drops_folded_region: boolean; caution: boolean; viable: boolean;
     } | null;
+    /** One manual rep matches the whole domain at >=50% identity over >=80% of it. */
+    demote?: { match: Match; range: string } | null;
     retire: { reasons: string[]; strong: boolean; quality: Quality };
   };
   recommendation: { primary: Rec; why: string };

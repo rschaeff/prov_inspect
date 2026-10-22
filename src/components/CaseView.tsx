@@ -184,6 +184,7 @@ function PieceRow({ p, color }: { p: Piece; color: string }) {
 
 function Options({ c, splitColors, blind }: { c: Case; splitColors: string[]; blind: boolean }) {
   const { split, trim, retire } = c.options;
+  const demote = c.options.demote ?? null;
   const primary = blind ? null : c.recommendation.primary;
   const head = (k: string, ok: boolean | null, extra?: string) => (
     <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 6 }}>
@@ -223,7 +224,21 @@ function Options({ c, splitColors, blind }: { c: Case; splitColors: string[]; bl
               {trim.caution && <span style={{ color: 'var(--warn)' }}> Drops over 30% of the domain.</span>}
             </div>
           </>
-        ) : <div className="muted">no single segment to keep</div>}
+        ) : <div className="muted">{c.segments.length
+          ? 'the matched domain already spans the whole rep: no boundary to change' : 'no single segment to keep'}</div>}
+      </div>
+
+      <div className="panel" style={{ padding: 12 }}>
+        {head('demote', demote ? true : null)}
+        {demote ? (
+          <div style={{ fontSize: 13 }}>
+            The whole domain matches <span className="mono">{demote.match.target}</span>{' '}
+            <span className="muted">({demote.match.target_h} &middot; {demote.match.target_f})</span> at{' '}
+            {demote.match.pid}% identity over {Math.round(demote.match.tcov * 100)}% of it ({demote.match.src}):
+            a member of that rep, with its boundaries unchanged.
+          </div>
+        ) : <div className="muted" style={{ fontSize: 13 }}>no manual rep matches the whole domain closely enough
+          (≥50% identity over ≥80% of the rep)</div>}
       </div>
 
       <div className="panel" style={{ padding: 12 }}>

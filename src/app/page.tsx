@@ -132,7 +132,9 @@ function caseLink(uid: number, f: SP) {
   return `/case/${uid}${p.size ? `?${p}` : ''}`;
 }
 
-const DEC_CLS: Record<string, string> = { split: 'r-split', trim: 'r-trim', remove: 'r-retire', keep: 'r-keep' };
+const DEC_CLS: Record<string, string> = {
+  split: 'r-split', trim: 'r-trim', demote: 'r-demote', remove: 'r-retire', keep: 'r-keep',
+};
 
 /** Latest decision; a mark when it overrides the recommendation. */
 function Decision({ row, rec }: { row?: ActionRow; rec: string }) {

@@ -57,6 +57,7 @@ export default async function PilotPage() {
                 <td className="num">{r?.len ?? ''}</td>
                 <td>{l && <>{l.action === 'unsure' ? "can't tell" : l.action}
                   {l.boundary_source === 'own' && <span className="muted"> (own boundaries)</span>}
+                  {l.member_of && <span className="muted"> to {l.member_of}</span>}
                   <span className="muted"> &middot; {['', 'low', 'medium', 'high'][l.confidence]}</span></>}</td>
               </tr>
             );

@@ -7,8 +7,8 @@ import { query } from '@/lib/db';
  * Only the labeling curator's own rows are ever shown, and no agent may read this table.
  */
 
-export type LabelAction = 'split' | 'trim' | 'retire' | 'keep' | 'unsure';
-export const LABEL_ACTIONS: LabelAction[] = ['split', 'trim', 'retire', 'keep', 'unsure'];
+export type LabelAction = 'split' | 'trim' | 'demote' | 'retire' | 'keep' | 'unsure';
+export const LABEL_ACTIONS: LabelAction[] = ['split', 'trim', 'demote', 'retire', 'keep', 'unsure'];
 
 /** Where a split or trim label's ranges came from; 'own' is a boundary neither proposal found. */
 export type BoundarySource = 'split_proposal' | 'trim_proposal' | 'own';
@@ -16,11 +16,14 @@ export type BoundarySource = 'split_proposal' | 'trim_proposal' | 'own';
 export type Label = {
   id: number; ecod_uid: number; action: LabelAction;
   boundary_source: BoundarySource | null; boundaries: string | null; becomes_member: boolean | null;
+  /** demote only: the manual rep it should join (the demote proposal's, or the curator's own) */
+  member_of: string | null;
   confidence: number; notes: string | null;
   created_at: string;
 };
 
-const COLS = `id, ecod_uid, action, boundary_source, boundaries, becomes_member, confidence, notes, created_at`;
+const COLS = `id, ecod_uid, action, boundary_source, boundaries, becomes_member, member_of, confidence, notes,
+  created_at`;
 
 /** This curator's current label for every case they have labeled. */
 export async function myLabels(pilot: string, curatorId: number): Promise<Map<number, Label>> {

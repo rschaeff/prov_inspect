@@ -46,7 +46,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ uid: string }>
     if (err) return NextResponse.json({ error: err }, { status: 400 });
     own = parsed.domains;
   } else if (!hasProposal(c, action)) {
-    return NextResponse.json({ error: `this case has no ${action} proposal; give your own boundaries` }, { status: 400 });
+    return NextResponse.json({ error: action === 'demote' ? 'no manual rep duplicates the whole domain'
+      : `this case has no ${action} proposal; give your own boundaries` }, { status: 400 });
   }
   const accepted = action === recAction(c.recommendation.primary) && action !== 'flag_review' && !own;
   let reason = typeof body.reason === 'string' ? body.reason.trim() : '';

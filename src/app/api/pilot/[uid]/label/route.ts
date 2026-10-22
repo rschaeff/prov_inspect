@@ -6,7 +6,8 @@ import { LABEL_ACTIONS, type BoundarySource, type LabelAction } from '@/lib/pilo
 import { checkCount, parseBoundaries } from '@/lib/ranges';
 
 /**
- * POST a pilot label: {action, boundary_source?, boundaries?, becomes_member?, confidence, notes?}.
+ * POST a pilot label: {action, boundary_source?, boundaries?, becomes_member?, member_of?, confidence, notes?}.
+ * A demote names the manual rep to join: member_of, defaulting to the demote proposal's.
  * Split and trim labels always store their resolved ranges: a proposal's are read from the snapshot
  * case file (never sent by the browser), the curator's own are checked against the domain file.
  */
@@ -55,16 +56,22 @@ export async function POST(req: Request, ctx: { params: Promise<{ uid: string }>
     }
   }
   const becomesMember = action === 'trim' ? !!b.becomes_member : null;
+  let memberOf: string | null = null;
+  if (action === 'demote') {
+    memberOf = (typeof b.member_of === 'string' && b.member_of.trim()) || c.options.demote?.match.target || null;
+    if (!memberOf) return NextResponse.json({ error: 'name the manual rep it duplicates' }, { status: 400 });
+    if (!/^[A-Za-z0-9_.]{4,30}$/.test(memberOf)) return NextResponse.json({ error: 'not a domain id' }, { status: 400 });
+  }
   const notes = typeof b.notes === 'string' && b.notes.trim() ? b.notes.trim() : null;
 
   try {
     const r = await query(
       `INSERT INTO ecod_curation.prov_pilot_label
-         (pilot, ecod_uid, ecod_domain_id, action, boundary_source, boundaries, becomes_member, confidence, notes,
-          curator, curator_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         (pilot, ecod_uid, ecod_domain_id, action, boundary_source, boundaries, becomes_member, member_of,
+          confidence, notes, curator, curator_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING id, created_at`,
-      [pilot!.pilot, parseInt(uid, 10), c.domain_id, action, source, boundaries, becomesMember, confidence, notes,
+      [pilot!.pilot, parseInt(uid, 10), c.domain_id, action, source, boundaries, becomesMember, memberOf, confidence, notes,
         session.curator.username, session.curator.id]);
     return NextResponse.json({ success: true, id: r.rows[0].id, boundaries });
   } catch (e) {

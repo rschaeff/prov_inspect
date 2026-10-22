@@ -24,7 +24,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Link href="/pilot" className="muted">pilot</Link>
             <Link href="/methods" className="muted">methods</Link>
             <span className="muted" style={{ marginLeft: 'auto', fontSize: 12 }}>
-              snapshot {census?.built ?? '?'}
+              snapshot {census?.snapshot ?? census?.built ?? '?'}
             </span>
             <LoginBox />
           </div>

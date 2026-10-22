@@ -5,10 +5,11 @@ import type { Action, ActionRow } from '@/lib/actions';
 import { checkCount, parseBoundaries, type ParsedDomain, type Residue } from '@/lib/ranges';
 
 const LABEL: Record<Action, string> = {
-  split: 'split', trim: 'trim', remove: 'retire', keep: 'keep as is', flag_review: 'flag for review',
+  split: 'split', trim: 'trim', demote: 'demote to member', remove: 'retire', keep: 'keep as is', flag_review: 'flag for review',
 };
-const CLS: Record<string, string> = { split: 'r-split', trim: 'r-trim', remove: 'r-retire', keep: 'r-keep' };
-const ACTIONS: Action[] = ['split', 'trim', 'remove', 'keep', 'flag_review'];
+const CLS: Record<string, string> = {
+  split: 'r-split', trim: 'r-trim', demote: 'r-demote', remove: 'r-retire', keep: 'r-keep',
+};
 
 /**
  * Log a decision on this case to ecod_curation.reference_domain_actions and
@@ -20,7 +21,7 @@ const ACTIONS: Action[] = ['split', 'trim', 'remove', 'keep', 'flag_review'];
  */
 export default function DecisionPanel({ uid, recommended, nextHref, residues, proposals, onMine }: {
   uid: string; recommended: Action; nextHref: string; residues: Residue[];
-  proposals: { split: string[] | null; trim: string | null };
+  proposals: { split: string[] | null; trim: string | null; demote: string | null };
   onMine: (d: ParsedDomain[] | null) => void;
 }) {
   const [authed, setAuthed] = useState<boolean | null>(null);
@@ -87,12 +88,17 @@ export default function DecisionPanel({ uid, recommended, nextHref, residues, pr
       {authed && (
         <div style={{ marginTop: 10 }}>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {ACTIONS.map((a) => (
+            {(['split', 'trim', 'demote', 'remove', 'keep', 'flag_review'] as Action[])
+              .filter((a) => a !== 'demote' || proposals.demote).map((a) => (
               <button key={a} type="button" onClick={() => setPick(a)} className="btn" aria-pressed={pick === a}>
                 {a === recommended ? '★ ' : ''}{LABEL[a]}
               </button>
             ))}
           </div>
+          {pick === 'demote' && (
+            <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+              becomes a member of <span className="mono">{proposals.demote}</span>; boundaries unchanged</div>
+          )}
           {bounded && (
             <div style={{ marginTop: 8 }}>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>

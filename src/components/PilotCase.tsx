@@ -9,6 +9,7 @@ import { checkCount, parseBoundaries } from '@/lib/ranges';
 const ACTIONS: { k: LabelAction; label: string; note: string }[] = [
   { k: 'split', label: 'split', note: 'two or more domains' },
   { k: 'trim', label: 'trim', note: 'one domain, new boundary' },
+  { k: 'demote', label: 'demote', note: 'boundaries right, but it duplicates a manual rep' },
   { k: 'retire', label: 'retire', note: 'poor domain' },
   { k: 'keep', label: 'keep', note: 'boundaries are right' },
   { k: 'unsure', label: "can't tell", note: 'not enough to decide' },
@@ -31,6 +32,7 @@ export default function PilotCase({ c, current, nextHref }: {
   const [source, setSource] = useState<BoundarySource | null>(current?.boundary_source ?? null);
   const [own, setOwn] = useState(current?.boundary_source === 'own' ? (current.boundaries ?? '').replace(/; /g, '\n') : '');
   const [member, setMember] = useState(!!current?.becomes_member);
+  const [memberOf, setMemberOf] = useState(current?.member_of ?? c.options.demote?.match.target ?? '');
   const [conf, setConf] = useState<number | null>(current?.confidence ?? null);
   const [notes, setNotes] = useState(current?.notes ?? '');
   const [busy, setBusy] = useState(false);
@@ -53,7 +55,8 @@ export default function PilotCase({ c, current, nextHref }: {
   };
   const editFrom = (ranges: string[]) => { setSource('own'); setOwn(ranges.join('\n')); setSaved(false); };
 
-  const ready = action && conf && (!bounded || (source && (source !== 'own' || (mine && !ownErr))));
+  const ready = action && conf && (!bounded || (source && (source !== 'own' || (mine && !ownErr))))
+    && (action !== 'demote' || memberOf.trim());
 
   const save = async () => {
     setBusy(true);
@@ -61,7 +64,7 @@ export default function PilotCase({ c, current, nextHref }: {
     const r = await fetch(`/api/pilot/${c.ecod_uid}/label`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, boundary_source: bounded ? source : null, boundaries: own,
-        becomes_member: member, confidence: conf, notes }),
+        becomes_member: member, member_of: memberOf, confidence: conf, notes }),
     });
     const j = await r.json().catch(() => ({}));
     setBusy(false);
@@ -125,6 +128,17 @@ export default function PilotCase({ c, current, nextHref }: {
                 {' '}the trimmed domain is already represented: it should become a member of a manual rep, not a rep
               </label>
             )}
+          </div>
+        )}
+
+        {action === 'demote' && (
+          <div style={{ marginTop: 10, fontSize: 13 }}>
+            <span className="muted">member of manual rep </span>
+            <input className="mono" value={memberOf} size={16} placeholder="e.g. e1uvqB2"
+              onChange={(e) => { setMemberOf(e.target.value); setSaved(false); }}
+              style={{ background: 'var(--bg)', color: 'var(--fg)', border: '1px solid var(--line)', borderRadius: 6,
+                padding: '3px 8px' }} />
+            <span className="muted"> &middot; boundaries unchanged</span>
           </div>
         )}
 

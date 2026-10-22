@@ -17,11 +17,12 @@ import type { ParsedDomain } from '@/lib/ranges';
  * Rows from this app carry new_classification.source = 'prov_inspect'.
  */
 
-export type Action = 'split' | 'trim' | 'remove' | 'keep' | 'flag_review';
-export const ACTIONS: Action[] = ['split', 'trim', 'remove', 'keep', 'flag_review'];
+export type Action = 'split' | 'trim' | 'demote' | 'remove' | 'keep' | 'flag_review';
+export const ACTIONS: Action[] = ['split', 'trim', 'demote', 'remove', 'keep', 'flag_review'];
 export const ACTION_LABEL: Record<Action, string> = {
   split: 'split',
   trim: 'trim',
+  demote: 'demote to member',
   remove: 'retire',
   keep: 'keep as is',
   flag_review: 'flag for review',
@@ -52,10 +53,14 @@ export async function buildRow(c: Case, action: Action, own: ParsedDomain[] | nu
   else if (action === 'trim') {
     proposal = { boundary_source: 'trim_proposal', piece: piece(c.options.trim!.piece), dropped: c.options.trim!.dropped_ranges };
   }
+  if (action === 'demote') {
+    const m = c.options.demote!.match;
+    proposal = { member_of: m.target, member_of_uid: m.target_uid, member_of_f: m.target_f, pid: m.pid, tcov: m.tcov };
+  }
   if (action === 'remove') proposal = { reasons: c.options.retire.reasons };
   const neu = {
     source: 'prov_inspect',
-    snapshot: census.built,
+    snapshot: census.snapshot ?? census.built,
     recommended: recAction(c.recommendation.primary),
     // computed models are numbered by UniProt seqid; experimental domains by PDB author numbering
     numbering: c.type === 'experimental structure' ? 'pdb_author' : 'seqid',
@@ -68,6 +73,7 @@ export async function buildRow(c: Case, action: Action, own: ParsedDomain[] | nu
 export function hasProposal(c: Case, action: Action): boolean {
   if (action === 'split') return !!c.options.split && c.options.split.pieces.length > 1;
   if (action === 'trim') return !!c.options.trim;
+  if (action === 'demote') return !!c.options.demote;
   return true;
 }
 
