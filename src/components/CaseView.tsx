@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Molstar, { type ColorRange } from './Molstar';
 import NearestRep from './NearestRep';
-import { blocksOf, complement, partsOf, type Case, type Hit, type Piece } from '@/lib/data';
+import type { Case, Hit, Piece } from '@/lib/data';
+import { blocksOf, complement, partsOf } from '@/lib/parts';
 import type { ParsedDomain } from '@/lib/ranges';
 
 const PIECE = ['#2f81f7', '#e16f24', '#1a7f37', '#8250df', '#bf3989', '#0f8b8d', '#9a6700', '#cf222e'];
