@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Molstar, { type ColorRange } from './Molstar';
-import type { Case, Hit, Piece } from '@/lib/data';
+import NearestRep from './NearestRep';
+import { blocksOf, complement, partsOf, type Case, type Hit, type Piece } from '@/lib/data';
 import type { ParsedDomain } from '@/lib/ranges';
 
 const PIECE = ['#2f81f7', '#e16f24', '#1a7f37', '#8250df', '#bf3989', '#0f8b8d', '#9a6700', '#cf222e'];
@@ -48,14 +49,12 @@ export default function CaseView({ c, blind = false, mine = null }: {
 
   const ranges: ColorRange[] = useMemo(() => {
     if (mode === 'split' && split) {
-      return split.pieces.map((p, i) => ({ start: p.start, end: p.end, color: splitColors[i] }));
+      return split.pieces.flatMap((p, i) => partsOf(p).map(([start, end]) => ({ start, end, color: splitColors[i] })));
     }
     if (mode === 'trim' && trim) {
-      const p = trim.piece;
-      const out: ColorRange[] = [{ start: p.start, end: p.end, color: TRIM }];
-      if (p.start > 1) out.push({ start: 1, end: p.start - 1, color: DROPPED });
-      if (p.end < n) out.push({ start: p.end + 1, end: n, color: DROPPED });
-      return out;
+      const kept = partsOf(trim.piece);
+      return [...kept.map(([start, end]) => ({ start, end, color: TRIM })),
+        ...complement(kept, n).map(([start, end]) => ({ start, end, color: DROPPED }))];
     }
     if (mode === 'plddt' && hasPlddt) {
       // contiguous runs of one band, so the scene stays a handful of selectors
@@ -68,7 +67,7 @@ export default function CaseView({ c, blind = false, mine = null }: {
       });
       return out;
     }
-    if (mode === 'hit' && hit) return [{ start: hit.qs, end: hit.qe, color: SRC[hit.src] }];
+    if (mode === 'hit' && hit) return blocksOf(hit).map(([start, end]) => ({ start, end, color: SRC[hit.src] }));
     if (mode === 'mine' && mine) {
       return mine.flatMap((d, i) => d.segments.map((g) => ({ ...g, color: PIECE[i % PIECE.length] })));
     }
@@ -104,6 +103,8 @@ export default function CaseView({ c, blind = false, mine = null }: {
           <Options c={c} splitColors={splitColors} blind={blind} />
         </div>
       </div>
+
+      <NearestRep c={c} />
 
       <h2>Evidence along the domain</h2>
       <Track c={c} splitColors={splitColors} onHit={(h) => { setHit(h); setMode('hit'); }} selected={hit} mine={mine} />
@@ -148,7 +149,7 @@ export default function CaseView({ c, blind = false, mine = null }: {
                 <td className="mono">{h.target}</td>
                 <td className="mono">{h.target_h}</td>
                 <td className="mono" title={h.target_f_name}>{h.target_f}</td>
-                <td className="mono">{pos(h.qs)}–{pos(h.qe)}</td>
+                <td className="mono">{blocksOf(h).map(([a, b]) => `${pos(a)}–${pos(b)}`).join(', ')}</td>
                 <td className="num">{h.pid}</td>
                 <td className="num">{h.tcov.toFixed(2)}</td>
                 <td className="num">{h.prob ?? ''}</td>
@@ -293,23 +294,30 @@ function Track({ c, splitColors, onHit, selected, mine }: {
         {yPl !== null && c.residues.map((r, i) => (
           <rect key={i} x={x(i + 1)} y={yPl} width={W / n + 0.3} height={ROW} fill={plddtColor(r[3] ?? 0)} />
         ))}
-        {ySplit !== null && c.options.split!.pieces.map((p, i) => (
-          <rect key={i} x={x(p.start)} y={ySplit} width={w(p.start, p.end)} height={ROW} rx={2}
+        {ySplit !== null && c.options.split!.pieces.flatMap((p, i) => partsOf(p).map(([a, b], k) => (
+          <rect key={`${i}-${k}`} x={x(a)} y={ySplit} width={w(a, b)} height={ROW} rx={2}
             fill={splitColors[i]}><title>{`${p.range} ${p.match ? p.match.target : p.status}`}</title></rect>
-        ))}
+        )))}
         {yTrim !== null && (() => {
           const p = c.options.trim!.piece;
           return (
             <>
               <rect x={0} y={yTrim + 5} width={W} height={4} fill={DROPPED} opacity={0.5} />
-              <rect x={x(p.start)} y={yTrim} width={w(p.start, p.end)} height={ROW} rx={2} fill={TRIM}>
-                <title>{p.range}</title></rect>
+              {partsOf(p).map(([a, b], k) => (
+                <rect key={k} x={x(a)} y={yTrim} width={w(a, b)} height={ROW} rx={2} fill={TRIM}>
+                  <title>{p.range}</title></rect>
+              ))}
             </>
           );
         })()}
         {c.segments.map((s, i) => (
-          <rect key={i} x={x(s.qs)} y={ySeg} width={w(s.qs, s.qe)} height={ROW} rx={2} fill={SRC[s.src]}
-            stroke="var(--fg)" strokeWidth={0.5}><title>{`${s.target} (${s.target_h}) ${s.pid}%`}</title></rect>
+          <g key={i}>
+            {s.blocks && <line x1={x(s.qs)} x2={x(s.qe)} y1={ySeg + ROW / 2} y2={ySeg + ROW / 2} stroke={SRC[s.src]} />}
+            {blocksOf(s).map(([a, b], k) => (
+              <rect key={k} x={x(a)} y={ySeg} width={w(a, b)} height={ROW} rx={2} fill={SRC[s.src]}
+                stroke="var(--fg)" strokeWidth={0.5}><title>{`${s.target} (${s.target_h}) ${s.pid}%`}</title></rect>
+            ))}
+          </g>
         ))}
         {yMine !== null && mine!.flatMap((d, i) => d.segments.map((g, k) => (
           <rect key={`${i}-${k}`} x={x(g.start)} y={yMine} width={w(g.start, g.end)} height={ROW} rx={2}
@@ -317,9 +325,13 @@ function Track({ c, splitColors, onHit, selected, mine }: {
         )))}
         {hits.map((h, i) => (
           <g key={i} onClick={() => onHit(h)} style={{ cursor: 'pointer' }}>
-            <rect x={x(h.qs)} y={yHits[i]} width={w(h.qs, h.qe)} height={ROW - 4} rx={2} fill={SRC[h.src]}
-              opacity={h.src === 'struct' ? 0.35 + 0.65 * (h.prob ?? 0) : 0.85}
-              stroke={selected === h ? 'var(--fg)' : 'none'} strokeWidth={1.5} />
+            {h.blocks && <line x1={x(h.qs)} x2={x(h.qe)} y1={yHits[i] + (ROW - 4) / 2} y2={yHits[i] + (ROW - 4) / 2}
+              stroke={SRC[h.src]} />}
+            {blocksOf(h).map(([a, b], k) => (
+              <rect key={k} x={x(a)} y={yHits[i]} width={w(a, b)} height={ROW - 4} rx={2} fill={SRC[h.src]}
+                opacity={h.src === 'struct' ? 0.35 + 0.65 * (h.prob ?? 0) : 0.85}
+                stroke={selected === h ? 'var(--fg)' : 'none'} strokeWidth={1.5} />
+            ))}
             <text x={Math.min(x(h.qe) + 4, W - 2)} y={yHits[i] + 9} fill="var(--muted)" fontSize={10}
               textAnchor={x(h.qe) + 160 > W ? 'end' : 'start'}>
               {h.target} {h.target_h} {h.pid}%</text>
@@ -331,7 +343,8 @@ function Track({ c, splitColors, onHit, selected, mine }: {
         <span style={{ color: SRC.seq }}>■</span> MMseqs2 &nbsp;
         <span style={{ color: UNASSIGNED }}>■</span> unassigned folded piece &nbsp;
         <span style={{ color: LINKER }}>■</span> linker / disorder &nbsp;
-        <span style={{ color: DROPPED }}>━</span> dropped by trim
+        <span style={{ color: DROPPED }}>━</span> dropped by trim &nbsp;
+        <span style={{ color: SRC.struct }}>■─■</span> hit skipping an insertion
       </div>
     </div>
   );

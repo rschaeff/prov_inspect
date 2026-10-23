@@ -61,7 +61,11 @@ function selectors(residues: [string, string, ...unknown[]][], r: ColorRange) {
   return out;
 }
 
-function scene(url: string, residues: [string, string, ...unknown[]][], ranges: ColorRange[]) {
+/** A second structure superposed on the first (e.g. a manual rep moved into the case's frame). */
+export type Overlay = { uid: string; rotation: number[]; translation: number[]; color: string };
+
+function scene(url: string, residues: [string, string, ...unknown[]][], ranges: ColorRange[],
+  overlay?: Overlay | null, origin?: string) {
   const colors = [
     { kind: 'color', params: { color: DIM } },
     ...ranges.flatMap((r) => {
@@ -69,10 +73,33 @@ function scene(url: string, residues: [string, string, ...unknown[]][], ranges: 
       return sel.length ? [{ kind: 'color', params: { color: r.color, selector: sel } }] : [];
     }),
   ];
+  const extra = overlay ? [{
+    kind: 'download',
+    params: { url: `${origin}/api/structure/${overlay.uid}` },
+    children: [{
+      kind: 'parse',
+      params: { format: 'pdb' },
+      children: [{
+        kind: 'structure',
+        params: { type: 'model' },
+        children: [
+          { kind: 'transform', params: { rotation: overlay.rotation, translation: overlay.translation } },
+          {
+            kind: 'component',
+            params: { selector: 'polymer' },
+            children: [{ kind: 'representation', params: { type: 'cartoon' }, children: [
+              { kind: 'color', params: { color: overlay.color } },
+              { kind: 'opacity', params: { opacity: 0.7 } },
+            ] }],
+          },
+        ],
+      }],
+    }],
+  }] : [];
   return {
     root: {
       kind: 'root',
-      children: [{
+      children: [...extra, {
         kind: 'download',
         params: { url },
         children: [{
@@ -95,18 +122,19 @@ function scene(url: string, residues: [string, string, ...unknown[]][], ranges: 
 }
 
 export default function Molstar({
-  uid, residues, ranges, height = 420, caption,
+  uid, residues, ranges, height = 420, caption, overlay = null,
 }: {
   uid: string;
   residues: [string, string, ...unknown[]][];
   ranges: ColorRange[];
   height?: number;
   caption?: React.ReactNode;
+  overlay?: Overlay | null;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(true);
-  const key = `${uid}|${ranges.map((r) => `${r.start}-${r.end}${r.color}`).join(',')}`;
+  const key = `${uid}|${ranges.map((r) => `${r.start}-${r.end}${r.color}`).join(',')}|${overlay?.uid ?? ''}`;
 
   useEffect(() => {
     let dead = false;
@@ -133,7 +161,7 @@ export default function Molstar({
         if (dead) { v.dispose(); return; }
         viewer = v;
         const url = `${window.location.origin}/api/structure/${uid}`;
-        await v.loadMvsData(JSON.stringify(scene(url, residues, ranges)), 'mvsj');
+        await v.loadMvsData(JSON.stringify(scene(url, residues, ranges, overlay, window.location.origin)), 'mvsj');
         if (!dead) setBusy(false);
       } catch (e) {
         if (!dead) { setErr(e instanceof Error ? e.message : String(e)); setBusy(false); }
