@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth';
-import { getCase, getPilot, pilotOpen } from '@/lib/data';
+import { abOptions, getCase, getPilot, isAbPilot, pilotOpen } from '@/lib/data';
 import { query } from '@/lib/db';
 import { LABEL_ACTIONS, type BoundarySource, type LabelAction } from '@/lib/pilot';
 import { checkCount, parseBoundaries } from '@/lib/ranges';
 
 /**
- * POST a pilot label: {action, boundary_source?, boundaries?, becomes_member?, member_of?, confidence, notes?}.
+ * POST a pilot label: {action, boundary_source?, proposal_set?, boundaries?, becomes_member?, member_of?, confidence,
+ * notes?}. In an A/B pilot a proposal source names its set (A or B); the label stores the resolved ranges, and
+ * scoring matches them against each version's proposals.
  * A demote names the manual rep to join: member_of, defaulting to the demote proposal's.
  * Split and trim labels always store their resolved ranges: a proposal's are read from the snapshot
  * case file (never sent by the browser), the curator's own are checked against the domain file.
@@ -35,6 +37,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ uid: string }>
   let boundaries: string | null = null;
   if (action === 'split' || action === 'trim') {
     source = b.boundary_source;
+    if (isAbPilot(pilot!.pilot) && (source === 'split_proposal' || source === 'trim_proposal')) {
+      const opts = b.proposal_set === 'A' || b.proposal_set === 'B' ? await abOptions(pilot!.pilot, uid, b.proposal_set) : null;
+      if (!opts) return NextResponse.json({ error: 'say which proposal set (A or B) the boundaries come from' }, { status: 400 });
+      c.options = opts;
+    }
     if (source === 'split_proposal' && action === 'split' && c.options.split) {
       const doms = c.options.split.pieces.filter((p) => p.status !== 'linker_or_disorder');
       if (doms.length < 2) return NextResponse.json({ error: 'the split proposal has fewer than two domains' }, { status: 400 });

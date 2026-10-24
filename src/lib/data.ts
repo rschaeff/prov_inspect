@@ -1,4 +1,5 @@
-import { existsSync } from 'fs';
+import { createHash } from 'crypto';
+import { existsSync, readFileSync } from 'fs';
 import { readFile } from 'fs/promises';
 import path from 'path';
 
@@ -77,6 +78,8 @@ export type Case = {
     retire: { reasons: string[]; strong: boolean; quality: Quality };
   };
   recommendation: { primary: Rec; why: string };
+  /** pilot A/B view only: two versions' proposals, in a per-case order that does not say which is which */
+  alt?: { set: 'A' | 'B'; options: Case['options'] }[];
 };
 
 let index: Promise<IndexRow[]> | null = null;
@@ -108,36 +111,95 @@ export async function getCase(uid: string): Promise<Case | null> {
  * The proposals' geometry and measurements stay.
  */
 export function blindCase(c: Case): Case {
-  const o = c.options;
   return {
     ...c,
     call: { cls: '', subclass: '', evidence: '', tier: '' },
     recommendation: { primary: 'keep', why: '' }, // placeholder only; the blind view never reads it
-    options: {
-      split: o.split && { ...o.split, viable: false },
-      trim: o.trim && { ...o.trim, viable: false },
-      retire: { ...o.retire, strong: false },
+    options: blindOptions(c.options),
+  };
+}
+
+/** Proposals' geometry only: the flags recommend.py adds (viable, strong, merged solenoid, cut disulfide)
+ * hint at its verdict, so each option is rebuilt from the fields the view draws. */
+function blindOptions(o: Case['options']): Case['options'] {
+  return {
+    split: o.split && { pieces: o.split.pieces, n_domains: o.split.n_domains, viable: false },
+    trim: o.trim && {
+      piece: o.trim.piece, dropped_residues: o.trim.dropped_residues, dropped_frac: o.trim.dropped_frac,
+      dropped_ranges: o.trim.dropped_ranges, drops_folded_region: o.trim.drops_folded_region,
+      caution: o.trim.caution, viable: false,
     },
+    retire: { ...o.retire, strong: false },
   };
 }
 
 /**
- * The blinded pilot (prov_amalgam/pilot): a frozen sample a curator labels before any agent sees it.
- * sample.json holds uids and presentation order only, never the stratum, so nothing here can hint at
- * the pipeline's recommendation. Labeling is open until pilot/CLOSED exists.
+ * Pilots that compare two pipeline versions: the case files of the earlier version, relative to DATA_DIR.
+ * The blind view shows both versions' proposals as sets A and B; evidence comes from the current files.
  */
-export type Pilot = { pilot: string; created: string; seed: number; items: { uid: number; order: number }[] };
+const AB_PILOTS: Record<string, string> = { pilot2: 'v1_backup/cases' };
+
+export const isAbPilot = (pilot: string) => pilot in AB_PILOTS;
+
+/** Which version is set A for a case: fixed per case by a hash, so scoring can recompute it. */
+export function abFirst(pilot: string, uid: string | number): 'earlier' | 'current' {
+  return createHash('sha256').update(`${pilot}:${uid}`).digest()[0] % 2 === 0 ? 'earlier' : 'current';
+}
+
+/** The options a proposal set ('A' or 'B') shows, for the label route to resolve a proposal source. */
+export async function abOptions(pilot: string, uid: string, set: 'A' | 'B'): Promise<Case['options'] | null> {
+  const dir = AB_PILOTS[pilot];
+  if (!dir) return null;
+  const earlier = (set === 'A') === (abFirst(pilot, uid) === 'earlier');
+  try {
+    const c: Case = earlier
+      ? JSON.parse(await readFile(path.join(DATA_DIR, dir, `${parseInt(uid, 10)}.json`), 'utf8'))
+      : (await getCase(uid))!;
+    return blindOptions(c.options);
+  } catch {
+    return null;
+  }
+}
+
+/** A blind case for a pilot: an A/B pilot's carries both versions' proposals, set A shown first. */
+export async function pilotCase(pilot: string, c: Case): Promise<Case> {
+  const b = blindCase(c);
+  if (!AB_PILOTS[pilot]) return b;
+  const a = await abOptions(pilot, c.ecod_uid, 'A');
+  const bb = await abOptions(pilot, c.ecod_uid, 'B');
+  if (!a || !bb) return b;
+  return { ...b, options: a, alt: [{ set: 'A', options: a }, { set: 'B', options: bb }] };
+}
+
+/**
+ * The blinded pilot (prov_amalgam/<ACTIVE_PILOT>, default pilot/): a frozen sample a curator labels before any agent sees it.
+ * sample.json holds uids and presentation order only, never the stratum, so nothing here can hint at
+ * the pipeline's recommendation. Labeling is open until <dir>/CLOSED exists.
+ */
+export type Pilot = { pilot: string; created: string; seed: number; items: { uid: number; order: number }[];
+  dir: string };
+
+/** The pilot being labeled: the directory named in DATA_DIR/ACTIVE_PILOT (default `pilot`, i.e. pilot1). */
+function pilotDir(): string {
+  try {
+    const d = readFileSync(path.join(DATA_DIR, 'ACTIVE_PILOT'), 'utf8').trim();
+    return /^[a-z0-9_]+$/.test(d) ? d : 'pilot';
+  } catch {
+    return 'pilot';
+  }
+}
 
 export async function getPilot(): Promise<Pilot | null> {
+  const dir = pilotDir();
   try {
-    return JSON.parse(await readFile(path.join(DATA_DIR, 'pilot', 'sample.json'), 'utf8'));
+    return { ...JSON.parse(await readFile(path.join(DATA_DIR, dir, 'sample.json'), 'utf8')), dir };
   } catch {
     return null;
   }
 }
 
 export function pilotOpen(p: Pilot | null): boolean {
-  return !!p && !existsSync(path.join(DATA_DIR, 'pilot', 'CLOSED'));
+  return !!p && !existsSync(path.join(DATA_DIR, p.dir, 'CLOSED'));
 }
 
 /** Cases kept out of the normal list, H-group pages and queue while labeling is open. */

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import PilotCase from '@/components/PilotCase';
 import { getCurrentSession } from '@/lib/auth';
-import { blindCase, getCase, getPilot, pilotOpen } from '@/lib/data';
+import { getCase, getPilot, pilotCase, pilotOpen } from '@/lib/data';
 import { myLabels, type Label } from '@/lib/pilot';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,7 @@ export default async function PilotCasePage({ params }: { params: Promise<{ uid:
   if (!pilot || !item) notFound();
   const full = await getCase(uid);
   if (!full) notFound();
-  const c = blindCase(full);
+  const c = await pilotCase(pilot.pilot, full);
   const session = await getCurrentSession();
   const labels = session ? await myLabels(pilot.pilot, session.curator.id).catch(() => new Map<number, Label>()) : new Map<number, Label>();
   const items = [...pilot.items].sort((a, b) => a.order - b.order);

@@ -19,20 +19,28 @@ const CONF = [{ v: 1, label: 'low' }, { v: 2, label: 'medium' }, { v: 3, label: 
 /**
  * The blind labeling view: the case evidence (no pipeline verdicts) plus the label form. Boundaries
  * can come from either proposal or be the curator's own, for a boundary neither proposal found; own
- * boundaries are checked and drawn on the structure while typing.
+ * boundaries are checked and drawn on the structure while typing. In an A/B pilot (c.alt) the curator
+ * switches between two proposal sets; a proposal source belongs to the set it was picked from.
  */
-export default function PilotCase({ c, current, nextHref }: {
+export default function PilotCase({ c: base, current, nextHref }: {
   c: Case; current: Label | null; nextHref: string | null;
 }) {
+  const [setIdx, setSetIdx] = useState(0);
+  const c = useMemo(() => (base.alt ? { ...base, options: base.alt[setIdx].options } : base), [base, setIdx]);
+  const setName = base.alt?.[setIdx].set ?? null;
+  // which set a picked proposal came from (A/B pilots only); a saved proposal label reopens as its ranges
+  const [srcSet, setSrcSet] = useState<string | null>(null);
+  const reopenAsOwn = !!base.alt && !!current?.boundaries;
   const splitDomains = c.options.split?.pieces.filter((p) => p.status !== 'linker_or_disorder') ?? [];
   const hasSplit = splitDomains.length >= 2;
   const hasTrim = !!c.options.trim;
 
   const [action, setAction] = useState<LabelAction | null>(current?.action ?? null);
-  const [source, setSource] = useState<BoundarySource | null>(current?.boundary_source ?? null);
-  const [own, setOwn] = useState(current?.boundary_source === 'own' ? (current.boundaries ?? '').replace(/; /g, '\n') : '');
+  const [source, setSource] = useState<BoundarySource | null>(reopenAsOwn ? 'own' : current?.boundary_source ?? null);
+  const [own, setOwn] = useState(current?.boundary_source === 'own' || reopenAsOwn
+    ? (current!.boundaries ?? '').replace(/; /g, '\n') : '');
   const [member, setMember] = useState(!!current?.becomes_member);
-  const [memberOf, setMemberOf] = useState(current?.member_of ?? c.options.demote?.match.target ?? '');
+  const [memberOf, setMemberOf] = useState(current?.member_of ?? (base.alt ? '' : c.options.demote?.match.target ?? ''));
   const [conf, setConf] = useState<number | null>(current?.confidence ?? null);
   const [notes, setNotes] = useState(current?.notes ?? '');
   const [busy, setBusy] = useState(false);
@@ -53,9 +61,13 @@ export default function PilotCase({ c, current, nextHref }: {
     if (source === 'split_proposal' && k !== 'split') setSource(null);
     if (source === 'trim_proposal' && k !== 'trim') setSource(null);
   };
+  const pickProposal = (s: BoundarySource) => { setSource(s); setSrcSet(setName); setSaved(false); };
+  // a proposal picked in one set is not the other set's: switching sets drops it
+  const proposalHere = (s: BoundarySource) => source === s && srcSet === setName;
   const editFrom = (ranges: string[]) => { setSource('own'); setOwn(ranges.join('\n')); setSaved(false); };
 
-  const ready = action && conf && (!bounded || (source && (source !== 'own' || (mine && !ownErr))))
+  const ready = action && conf && (!bounded || (source && (source === 'own' ? mine && !ownErr
+    : !base.alt || srcSet === setName)))
     && (action !== 'demote' || memberOf.trim());
 
   const save = async () => {
@@ -63,7 +75,7 @@ export default function PilotCase({ c, current, nextHref }: {
     setMsg(null);
     const r = await fetch(`/api/pilot/${c.ecod_uid}/label`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, boundary_source: bounded ? source : null, boundaries: own,
+      body: JSON.stringify({ action, boundary_source: bounded ? source : null, proposal_set: srcSet, boundaries: own,
         becomes_member: member, member_of: memberOf, confidence: conf, notes }),
     });
     const j = await r.json().catch(() => ({}));
@@ -75,6 +87,19 @@ export default function PilotCase({ c, current, nextHref }: {
 
   return (
     <>
+      {base.alt && (
+        <div className="panel" style={{ padding: 10, margin: '12px 0 0', display: 'flex', gap: 8, alignItems: 'center',
+          flexWrap: 'wrap' }}>
+          <b>Proposals</b>
+          {base.alt.map((x, i) => (
+            <button key={x.set} type="button" className="btn" aria-pressed={setIdx === i} onClick={() => setSetIdx(i)}>
+              set {x.set}</button>
+          ))}
+          <span className="muted" style={{ fontSize: 13 }}>
+            Two versions of the pipeline, in an order that differs case by case. They may agree. The evidence below is
+            the same for both; only the split and trim proposals change.</span>
+        </div>
+      )}
       <div className="panel" style={{ padding: 14, margin: '12px 0 16px' }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           <b style={{ marginRight: 6 }}>Your call</b>
@@ -89,11 +114,11 @@ export default function PilotCase({ c, current, nextHref }: {
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
               <span className="muted" style={{ fontSize: 13 }}>boundaries from</span>
               {action === 'split' && hasSplit && (
-                <button type="button" className="btn" aria-pressed={source === 'split_proposal'}
-                  onClick={() => { setSource('split_proposal'); setSaved(false); }}>the split proposal</button>)}
+                <button type="button" className="btn" aria-pressed={proposalHere('split_proposal')}
+                  onClick={() => pickProposal('split_proposal')}>the split proposal{setName ? ` (set ${setName})` : ''}</button>)}
               {action === 'trim' && hasTrim && (
-                <button type="button" className="btn" aria-pressed={source === 'trim_proposal'}
-                  onClick={() => { setSource('trim_proposal'); setSaved(false); }}>the trim proposal</button>)}
+                <button type="button" className="btn" aria-pressed={proposalHere('trim_proposal')}
+                  onClick={() => pickProposal('trim_proposal')}>the trim proposal{setName ? ` (set ${setName})` : ''}</button>)}
               <button type="button" className="btn" aria-pressed={source === 'own'}
                 onClick={() => { setSource('own'); setSaved(false); }}>my own</button>
             </div>
