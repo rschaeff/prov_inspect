@@ -34,6 +34,8 @@ export type IndexRow = {
 export type Census = {
   built: string;
   snapshot?: string;
+  /** the prov_amalgam commit recommend.py ran from ('+dirty' if edited); absent before 2026-10-24 */
+  pipeline?: string;
   n_cases: number;
   by_class_rec: { cls: string; rec: Rec; n: number }[];
   members_by_rec: Record<string, number>;

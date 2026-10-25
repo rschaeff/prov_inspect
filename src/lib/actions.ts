@@ -61,6 +61,8 @@ export async function buildRow(c: Case, action: Action, own: ParsedDomain[] | nu
   const neu = {
     source: 'prov_inspect',
     snapshot: census.snapshot ?? census.built,
+    // which pipeline version made the recommendation this decision was made on
+    pipeline: census.pipeline ?? null,
     recommended: recAction(c.recommendation.primary),
     // computed models are numbered by UniProt seqid; experimental domains by PDB author numbering
     numbering: c.type === 'experimental structure' ? 'pdb_author' : 'seqid',
