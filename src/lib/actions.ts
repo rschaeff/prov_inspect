@@ -60,7 +60,9 @@ export async function buildRow(c: Case, action: Action, own: ParsedDomain[] | nu
   if (action === 'remove') proposal = { reasons: c.options.retire.reasons };
   const neu = {
     source: 'prov_inspect',
+    // when the database was read; run_date is when the recommendations were computed from it
     snapshot: census.snapshot ?? census.built,
+    run_date: census.built,
     // which pipeline version made the recommendation this decision was made on
     pipeline: census.pipeline ?? null,
     recommended: recAction(c.recommendation.primary),
